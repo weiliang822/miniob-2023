@@ -37,18 +37,11 @@ void DefaultHandler::set_default(DefaultHandler *handler)
   default_handler = handler;
 }
 
-DefaultHandler &DefaultHandler::get_default()
-{
-  return *default_handler;
-}
+DefaultHandler &DefaultHandler::get_default() { return *default_handler; }
 
-DefaultHandler::DefaultHandler()
-{}
+DefaultHandler::DefaultHandler() {}
 
-DefaultHandler::~DefaultHandler() noexcept
-{
-  destroy();
-}
+DefaultHandler::~DefaultHandler() noexcept { destroy(); }
 
 RC DefaultHandler::init(const char *base_dir)
 {
@@ -61,7 +54,7 @@ RC DefaultHandler::init(const char *base_dir)
   }
 
   base_dir_ = base_dir;
-  db_dir_ = tmp + "/";
+  db_dir_   = tmp + "/";
 
   const char *sys_db = "sys";
 
@@ -115,10 +108,7 @@ RC DefaultHandler::create_db(const char *dbname)
   return RC::SUCCESS;
 }
 
-RC DefaultHandler::drop_db(const char *dbname)
-{
-  return RC::INTERNAL;
-}
+RC DefaultHandler::drop_db(const char *dbname) { return RC::INTERNAL; }
 
 RC DefaultHandler::open_db(const char *dbname)
 {
@@ -137,8 +127,8 @@ RC DefaultHandler::open_db(const char *dbname)
   }
 
   // open db
-  Db *db = new Db();
-  RC ret = RC::SUCCESS;
+  Db *db  = new Db();
+  RC  ret = RC::SUCCESS;
   if ((ret = db->init(dbname, dbpath.c_str())) != RC::SUCCESS) {
     LOG_ERROR("Failed to open db: %s. error=%s", dbname, strrc(ret));
     delete db;
@@ -148,15 +138,9 @@ RC DefaultHandler::open_db(const char *dbname)
   return ret;
 }
 
-RC DefaultHandler::close_db(const char *dbname)
-{
-  return RC::UNIMPLENMENT;
-}
+RC DefaultHandler::close_db(const char *dbname) { return RC::UNIMPLENMENT; }
 
-RC DefaultHandler::execute(const char *sql)
-{
-  return RC::UNIMPLENMENT;
-}
+RC DefaultHandler::execute(const char *sql) { return RC::UNIMPLENMENT; }
 
 RC DefaultHandler::create_table(
     const char *dbname, const char *relation_name, int attribute_count, const AttrInfoSqlNode *attributes)
@@ -168,9 +152,14 @@ RC DefaultHandler::create_table(
   return db->create_table(relation_name, attribute_count, attributes);
 }
 
+// 2023.10.22 upd by wqz
 RC DefaultHandler::drop_table(const char *dbname, const char *relation_name)
 {
-  return RC::UNIMPLENMENT;
+  Db *db = find_db(dbname);
+  if (db == nullptr) {
+    return RC::SCHEMA_DB_NOT_OPENED;
+  }
+  return db->drop_table(relation_name);  // 直接调用db的删掉接口
 }
 
 Db *DefaultHandler::find_db(const char *dbname) const
@@ -201,7 +190,7 @@ RC DefaultHandler::sync()
   RC rc = RC::SUCCESS;
   for (const auto &db_pair : opened_dbs_) {
     Db *db = db_pair.second;
-    rc = db->sync();
+    rc     = db->sync();
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to sync db. name=%s, rc=%d:%s", db->name(), rc, strrc(rc));
       return rc;
