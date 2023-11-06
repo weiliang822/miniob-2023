@@ -13,17 +13,18 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include <sstream>
+#include <iomanip>
 #include "sql/parser/value.h"
 #include "storage/field/field.h"
 #include "common/log/log.h"
 #include "common/lang/comparator.h"
 #include "common/lang/string.h"
 
-const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "floats", "booleans"};
+const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "floats", "dates", "booleans"};
 
 const char *attr_type_to_string(AttrType type)
 {
-  if (type >= UNDEFINED && type <= FLOATS) {
+  if (type >= UNDEFINED && type <= DATES) {
     return ATTR_TYPE_NAME[type];
   }
   return "unknown";
@@ -57,6 +58,11 @@ Value::Value(const char *s, int len /*= 0*/)
 {
   set_string(s, len);
 }
+// 处理日期
+Value::Value(date val) 
+{
+  set_date(val);
+}
 
 void Value::set_data(char *data, int length)
 {
@@ -70,6 +76,10 @@ void Value::set_data(char *data, int length)
     } break;
     case FLOATS: {
       num_value_.float_value_ = *(float *)data;
+      length_ = length;
+    } break;
+    case DATES: {     
+      num_value_.date_value_ = *(date *)data;
       length_ = length;
     } break;
     case BOOLEANS: {
@@ -92,6 +102,13 @@ void Value::set_float(float val)
 {
   attr_type_ = FLOATS;
   num_value_.float_value_ = val;
+  length_ = sizeof(val);
+}
+// 添加设置日期函数
+void Value::set_date(date val)   
+{
+  attr_type_ = DATES;
+  num_value_.date_value_ = val;
   length_ = sizeof(val);
 }
 void Value::set_boolean(bool val)
@@ -127,6 +144,9 @@ void Value::set_value(const Value &value)
     case BOOLEANS: {
       set_boolean(value.get_boolean());
     } break;
+    case DATES: {
+      set_date(value.get_date());   
+    } break;
     case UNDEFINED: {
       ASSERT(false, "got an invalid value type");
     } break;
@@ -158,6 +178,16 @@ std::string Value::to_string() const
     case BOOLEANS: {
       os << num_value_.bool_value_;
     } break;
+    case DATES: {     
+      unsigned year = 0, month = 0, day = 0;
+      date t = num_value_.date_value_;
+      year = (t >> 16);
+      month = (t >> 8) & 0xff;
+      day = t & 0xff;
+      os << std::setw(4) << std::setfill('0') << year << "-";
+      os << std::setw(2) << std::setfill('0') << month << "-";
+      os << std::setw(2) << std::setfill('0') << day;
+    } break;
     case CHARS: {
       os << str_value_;
     } break;
@@ -186,7 +216,10 @@ int Value::compare(const Value &other) const
       } break;
       case BOOLEANS: {
         return common::compare_int((void *)&this->num_value_.bool_value_, (void *)&other.num_value_.bool_value_);
-      }
+      }break;
+      case DATES: {   
+        return common::compare_date((void *)&this->num_value_.date_value_, (void *)&other.num_value_.date_value_);
+      } break;
       default: {
         LOG_WARN("unsupported type: %d", this->attr_type_);
       }
@@ -222,6 +255,9 @@ int Value::get_int() const
     case BOOLEANS: {
       return (int)(num_value_.bool_value_);
     }
+    case DATES: {   
+      return (int)(num_value_.date_value_);
+    }
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
       return 0;
@@ -249,6 +285,9 @@ float Value::get_float() const
     } break;
     case BOOLEANS: {
       return float(num_value_.bool_value_);
+    } break;
+    case DATES: {   
+      return 0.0;
     } break;
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
@@ -294,10 +333,42 @@ bool Value::get_boolean() const
     case BOOLEANS: {
       return num_value_.bool_value_;
     } break;
+    case DATES: {        
+      return num_value_.date_value_ != 0;
+    } break;
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
       return false;
     }
   }
   return false;
+}
+
+date Value::get_date() const  
+{ 
+  switch (attr_type_) {
+    case CHARS: {
+      LOG_TRACE("failed to convert string to date.");
+      return (date)0;
+    } break;
+    case INTS: {
+      LOG_TRACE("failed to convert int to date.");
+      return (date)0;
+    } break;
+    case FLOATS: {
+      LOG_TRACE("failed to convert float to date.");
+      return (date)0;
+    } break;
+    case BOOLEANS: {
+      LOG_TRACE("failed to convert bool to date.");
+      return (date)0;
+    } break;
+    case DATES: {      
+      return num_value_.date_value_;
+    } break;
+    default: {
+      LOG_WARN("unknown data type. type=%d", attr_type_);
+      return false;
+    }
+  }
 }
